@@ -75,6 +75,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent)}100%{box-shadow:0 0 0 18px transparent}}
 @media (prefers-reduced-motion:reduce){.mic.live{animation:none}.shake{animation:none!important}}
 .center{text-align:center}
+.srsnote.go{color:var(--good);font-weight:700}
 .feedback{text-align:center;font-weight:700;min-height:28px;margin:8px 0}
 .feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
 .heard{font-family:var(--f-en);color:var(--muted);text-align:center;font-size:14px}
@@ -210,29 +211,48 @@ function speak(text, slow){
 /* ---------- speech in ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let micBlocked = !SR;
-function listen(onText, onFail, onLive){
+function listen(onText, onFail, onLive, onState){
   if (micBlocked) { onFail("blocked"); return null; }
-  let done = false, latest = [], heardAny = false, silence = null, cap = null;
-  const clearT = () => { clearTimeout(silence); clearTimeout(cap); };
+  let done = false, latest = [], heardAny = false, silence = null, cap = null, r = null, restarts = 0, readyT = null;
+  const t0 = Date.now();
+  const clearT = () => { clearTimeout(silence); clearTimeout(cap); clearTimeout(readyT); };
   const finish = () => { if (done) return; done = true; clearT(); if (heardAny && latest.length && latest[0].trim()) onText(latest); else onFail("no-speech"); };
-  try {
-    const r = new SR(); r.lang = "en-US"; r.interimResults = true; r.continuous = false; r.maxAlternatives = 4;
+  const ctrl = {
+    stopped: false,
+    stop(){ ctrl.stopped = true; try { r.stop(); } catch(e){ finish(); } },
+    abort(){ ctrl.stopped = true; done = true; clearT(); try { r.abort(); } catch(e){} }
+  };
+  const make = () => {
+    r = new SR(); r.lang = "en-US"; r.interimResults = true; r.continuous = true; r.maxAlternatives = 4;
+    r.onaudiostart = () => { clearTimeout(readyT); if (onState) onState("ready"); };
+    r.onspeechstart = () => { if (onState) onState("speech"); };
     r.onresult = e => {
       const res = [...e.results], last = res[res.length - 1];
       const prefix = res.slice(0, -1).map(x => x[0].transcript).join(" ");
-      latest = [...last].map(a => (prefix + " " + a.transcript).trim());
+      latest = [...last].map(x => (prefix + " " + x.transcript).trim());
       heardAny = true;
+      if (onState) onState("speech");
       if (onLive) onLive(res.map(x => x[0].transcript).join(" ").trim());
-      clearTimeout(silence); silence = setTimeout(() => { try { r.stop(); } catch(_){} }, 1800);
+      clearTimeout(silence); silence = setTimeout(() => ctrl.stop(), 1800);
     };
     r.onerror = e => {
       if (e.error === "no-speech" || e.error === "aborted") return;
       if (["not-allowed","service-not-allowed","audio-capture"].includes(e.error)) micBlocked = true;
       if (!done){ done = true; clearT(); onFail(e.error); }
     };
-    r.onend = finish;
-    cap = setTimeout(() => { try { r.stop(); } catch(_){} }, 12000);
-    r.start(); return r;
+    r.onend = () => {
+      if (done) return;
+      if (!heardAny && !ctrl.stopped && restarts < 3 && Date.now() - t0 < 11000){
+        restarts++; try { make(); r.start(); return; } catch(e){}
+      }
+      finish();
+    };
+  };
+  try {
+    make();
+    cap = setTimeout(() => ctrl.stop(), 12000);
+    readyT = setTimeout(() => { if (onState) onState("ready"); }, 900);
+    r.start(); return ctrl;
   } catch(e){ micBlocked = true; onFail("blocked"); return null; }
 }
 function micMessage(err){
@@ -441,7 +461,7 @@ function micBlock(d, verb){
   }
   return `
     <button class="mic ${listening ? "live" : ""}" data-act="mic" aria-label="${verb}">${listening ? "■" : "🎤"}</button>
-    <p class="center srsnote">${listening ? "話し終わったらもう一度押してください（少し黙ると自動で止まります）" : st.judging ? "判定しています…" : `マイクを押して${verb}`}</p>
+    <p id="micstate" class="center srsnote${st.micState === "ready" || st.micState === "speech" ? " go" : ""}">${listening ? micStateText() : st.judging ? "判定しています…" : `マイクを押して${verb}`}</p>
     <p id="live" class="heard" lang="en">${listening ? "聞き取り中：" + esc(st.live || "…") : ""}</p>
     <p class="feedback ${passed ? "good" : r ? "bad" : ""}">${r ? (passed ? `いいね！ 一致度 ${r.pct}%` : `一致度 ${r.pct}%　${failMsg()}`) : ""}</p>
     ${r ? `<p class="heard" lang="en">聞き取り：${esc(r.heard)}</p>` : ""}
@@ -617,13 +637,15 @@ function sheetAction(name){
   if (name === "exclude"){ const id = cur.id; S.excl[id] = true; save(); closeSheet(); toast("この文を出題から外しました", () => { delete S.excl[id]; save(); if (view !== "study") render(); }); nextItem(); }
   if (name === "restart"){ closeSheet(); cur.ikinari = false; goStep(1); }
 }
+function micStateText(){ return st.micState === "speech" ? "聞いています…話し終わったらもう一度押してください" : st.micState === "ready" ? "どうぞ、話してください" : "準備中…（まだ話さないでください）"; }
 function micToggle(d){
   if (listening){ const r = listening; listening = null; st.judging = true; render(); try { r.stop(); } catch(e){ try { r.abort(); } catch(_){} } return; }
   window.speechSynthesis && window.speechSynthesis.cancel();
-  st.result = null; st.live = ""; st.err = ""; st.judging = false;
+  st.result = null; st.live = ""; st.err = ""; st.judging = false; st.micState = "starting";
   listening = listen(alts => { listening = null; st.judging = false; st.live = ""; st.result = bestScore(d, alts); if (st.result.pct >= S.settings.pass) onSpeechPass(); else onSpeechFail(); },
     err => { listening = null; st.judging = false; st.live = ""; st.err = micMessage(err); if (micBlocked) toast("マイクが使えないため、自分で判定する方式に切り替えました"); render(); },
-    live => { st.live = live; const el = document.getElementById("live"); if (el) el.textContent = "聞き取り中：" + live; });
+    live => { st.live = live; const el = document.getElementById("live"); if (el) el.textContent = "聞き取り中：" + live; },
+    state => { if (st.micState === "speech" && state === "ready") return; st.micState = state; const el = document.getElementById("micstate"); if (el){ el.textContent = micStateText(); el.classList.add("go"); } });
   render();
 }
 function onSpeechPass(){
