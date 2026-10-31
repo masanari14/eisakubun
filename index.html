@@ -185,7 +185,8 @@ body{font-size:16px}
 .note{font-size:15px}
 .stat span{font-size:13.5px}.stat em{font-size:13.5px}.stat strong{font-size:24px}
 .btn{font-size:16px;padding:12px 18px}
-.icon{font-size:16px}.icon.nav{font-size:15.5px}
+.icon{font-size:16px}.icon.nav{font-size:16px;font-weight:700;color:var(--ink)}
+.icon.home{color:var(--ink);padding:6px 8px;display:inline-grid;place-items:center}
 .steps button{font-size:15px;padding:9px 0}
 .ja{font-size:18px}.ja.big{font-size:24px}
 .en{font-size:26px}
@@ -481,7 +482,7 @@ function studyHTML(){
   const q = encodeURIComponent(d.search_query);
   const pos = Q.length > 1 ? `${qi+1} / ${Q.length}` : "練習";
   return `
-  <div class="bar"><button class="icon" data-go="home" aria-label="ホームに戻る">← ホーム</button><button class="icon nav" data-act="prevs" ${qi === 0 ? "disabled" : ""}>‹ 前の文</button><h1 class="center" style="font-weight:500;color:var(--muted);font-size:13px">${pos}</h1>
+  <div class="bar"><button class="icon home" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v9.5h5v-5.5h3v5.5h5V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button class="icon nav" data-act="prevs" ${qi === 0 ? "disabled" : ""}>‹ 前の文</button><h1 class="center" style="font-weight:500;color:var(--muted);font-size:13px">${pos}</h1>
     <button class="icon nav" data-act="nexts">次の文 ›</button><button class="icon ${S.fav[d.id] ? "on" : ""}" data-act="fav" aria-label="お気に入り">${S.fav[d.id] ? "★" : "☆"}</button><button class="icon" data-act="menu" aria-label="メニュー">…</button></div>
   <button class="chap-switch" data-act="chapters">第${chOf(d)}章　${esc(chTitle(chOf(d)))}　<span aria-hidden="true">▾</span></button>
   ${stepBar()}
@@ -525,6 +526,10 @@ function inputMode(){ return S.settings.inputMode === "auto" ? (IOS ? "keyboard"
 function micBlock(d, verb){
   const r = st.result, passed = r && r.pct >= S.settings.pass;
   if (st.fails >= 3 && !passed) return cur.step === 6 ? revealHTML(d, "fail6") : revealHTML(d, "skip");
+  if (st.passed) return `
+    <p class="feedback good">いいね！ 一致度 ${r ? r.pct : 100}%</p>
+    ${r && r.heard ? `<p class="heard" lang="en">入力：${esc(r.heard)}</p>` : ""}
+    ${speechNextHTML()}`;
   if (inputMode() === "keyboard" && !st.selfMode) return `
     <div class="dict">
       <div class="dict-row">
@@ -597,7 +602,7 @@ function resultHTML(){
   const nextTxt = s ? (s.due === today() ? "今日の最後にもう一度確認します" : `次の復習は ${s.due.slice(5).replace("-", "月")}日（${s.level >= 6 ? "定着" : `段階 ${s.level}/5`}）`) : "";
   const last = qi >= Q.length - 1;
   return `
-  <div class="bar"><button class="icon" data-go="home">← ホーム</button><h1></h1></div>
+  <div class="bar"><button class="icon home" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v9.5h5v-5.5h3v5.5h5V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><h1></h1></div>
   <div class="result">
     <div class="badge">${cur.ok ? (cur.ikinari ? "いきなり正解！習得済み" : "できた！") : "答えを覚えて、また挑戦"}</div>
     ${sentenceHTML(d)}
@@ -623,7 +628,7 @@ function listHTML(){
   const f = {all: d => true, fav: d => S.fav[d.id], weak: d => S.weak[d.id], mastered: d => isMastered(d.id), excl: d => S.excl[d.id]}[listFilter];
   const items = DATA.filter(f), exN = DATA.filter(d => S.excl[d.id]).length;
   return `
-  <div class="bar"><button class="icon" data-go="home">← ホーム</button><h1>例文一覧</h1></div>
+  <div class="bar"><button class="icon home" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v9.5h5v-5.5h3v5.5h5V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><h1>例文一覧</h1></div>
   <div class="tabs">${tabs.map(([k, n]) => `<button class="${listFilter === k ? "on" : ""}" data-filter="${k}">${n}</button>`).join("")}</div>
   <p class="count">出題中 ${DATA.length - exN}文 ／ 除外 ${exN}文</p>
   ${items.length ? items.map((d, k) => (k === 0 || chOf(items[k-1]) !== chOf(d) ? `<div class="ch-head"><b>第${chOf(d)}章　${esc(chTitle(chOf(d)))}</b><div class="row"><button class="practice" data-chon="${chOf(d)}">すべて出題</button><button class="practice" data-choff="${chOf(d)}">すべて除外</button></div></div>` : "") + `
@@ -642,7 +647,7 @@ function listHTML(){
 function settingsHTML(){
   const seg = (key, vals, fmt) => `<div class="seg">${vals.map(v => `<button class="${S.settings[key] === v ? "on" : ""}" data-set="${key}" data-val="${v}">${fmt(v)}</button>`).join("")}</div>`;
   return `
-  <div class="bar"><button class="icon" data-go="home">← ホーム</button><h1>設定</h1></div>
+  <div class="bar"><button class="icon home" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v9.5h5v-5.5h3v5.5h5V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><h1>設定</h1></div>
   <div class="set"><p>再生速度</p>${seg("rate", [0.8, 1, 1.2], v => v.toFixed(1) + "x")}</div>
   <div class="set" style="flex-wrap:wrap"><p style="flex:1 1 200px">読み上げの声<small>名前に Natural・Enhanced・Premium が付いた声ほど自然です</small></p>
     <div class="row" style="flex:1 1 240px;justify-content:flex-end;min-width:0">${(() => { const vs = rankedVoices(); return vs.length ? `<select id="voice-select" class="sel" aria-label="読み上げの声">${vs.map(v => `<option value="${esc(v.name)}" ${voice && v.name === voice.name ? "selected" : ""}>${esc(v.name)}（${esc(v.lang)}）</option>`).join("")}</select>` : `<span class="srsnote">英語の声が見つかりません</span>`; })()}<button class="btn" data-act="voicetest">試しに聞く</button></div></div>
@@ -708,13 +713,14 @@ function act(name){
       { const el = document.getElementById("dict"); if (el) el.blur(); } document.body.classList.remove("typing");
       if (st.result.pct >= S.settings.pass) onSpeechPass(); else onSpeechFail();
       break; }
+    case "speechnext": if (cur.step < 6) goStep(cur.step + 1); else finishItem(true); break;
     case "selfjudge": stopListen(); st.selfMode = true; st.err = ""; render(); break;
     case "skip": S.weak[cur.id] = true; save(); if (cur.step < 6) goStep(cur.step + 1); else finishItem(false); break;
     case "fail6": S.weak[cur.id] = true; save(); finishItem(false); break;
     case "hint5": st.hint = (st.hint || 0) + 1; render(); break;
     case "check5": checkCloze(d); break;
     case "fav": S.fav[cur.id] ? delete S.fav[cur.id] : S.fav[cur.id] = true; save(); render(); break;
-    case "menu": openSheet(`<h3>この文</h3><button class="menu-item" data-sheet="exclude">この文を出題しない</button><button class="menu-item" data-sheet="restart">ステップ1からやり直す</button>`); break;
+    case "menu": openSheet(`<h3>出題の設定</h3><button class="menu-item" data-sheet="exclude">この文を出題しない（一覧からいつでも戻せます）</button>`); break;
     case "explain": explainSheet(d); break;
     case "chapters": openSheet(`<h3>章を切り替える</h3>${chapters().map(c => { const dn = c.items.filter(x => isMastered(x.id)).length; return `<button class="menu-item" data-sheet="ch-${c.n}"><b>第${c.n}章</b>　${esc(c.title)}<span style="float:right;color:var(--muted)">${dn}/${c.items.length}</span></button>`; }).join("")}`); break;
     case "next": nextItem(); break;
@@ -750,10 +756,10 @@ async function micToggle(d){
   render();
 }
 function onSpeechPass(){
-  render();
-  if (cur.step === 6){ if (cur.ikinari){ setTimeout(() => finishItem(true), 1000); } else { S.prog[cur.id] = 6; save(); setTimeout(() => finishItem(true), 1000); } }
-  else passStep();
+  S.prog[cur.id] = Math.max(S.prog[cur.id] || 0, cur.step); save();
+  st.passed = true; render();
 }
+function speechNextHTML(){ return `<button class="btn primary wide" data-act="speechnext" style="margin-top:6px">${cur.step === 6 ? "結果を見る ›" : "次へ ›"}</button>`; }
 function onSpeechFail(){
   if (cur.ikinari){ toast("ステップ1から練習しましょう"); cur.ikinari = false; goStep(1); return; }
   st.fails++; if (st.fails >= 3) S.weak[cur.id] = true; save(); render();
