@@ -75,6 +75,8 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent)}100%{box-shadow:0 0 0 18px transparent}}
 @media (prefers-reduced-motion:reduce){.mic.live{animation:none}.shake{animation:none!important}}
 .center{text-align:center}
+.dict-in{width:100%;min-width:0;font-family:var(--f-en);font-size:18px;line-height:1.5;border:1.5px solid var(--accent);border-radius:12px;padding:10px 12px;background:var(--sheet);color:var(--ink);resize:vertical}
+.dict-in::placeholder{font-family:var(--f-ja);font-size:14px;color:var(--muted)}
 .srsnote.go{color:var(--good);font-weight:700}
 .feedback{text-align:center;font-weight:700;min-height:28px;margin:8px 0}
 .feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
@@ -178,7 +180,7 @@ const DATA = [{"id": 1, "chapter": 1, "chapter_title": "職場・日常での何
 function chapters(){ const m = new Map(); DATA.forEach(d => { if (!m.has(d.chapter)) m.set(d.chapter, {n: d.chapter, title: d.chapter_title, items: []}); m.get(d.chapter).items.push(d); }); return [...m.values()]; }
 const byId = Object.fromEntries(DATA.map(d => [d.id, d]));
 const KEY = "yarinaoshi-adult-v1";
-const DEF = {fav:{}, excl:{}, weak:{}, prog:{}, srs:{}, settings:{rate:1, pass:80, search:true, voiceName:"", autoplay:true}, streak:{last:null, count:0}, daily:{date:null, newDone:0, reviewDone:0}};
+const DEF = {fav:{}, excl:{}, weak:{}, prog:{}, srs:{}, settings:{rate:1, pass:80, search:true, voiceName:"", autoplay:true, inputMode:"auto"}, streak:{last:null, count:0}, daily:{date:null, newDone:0, reviewDone:0}};
 function load(){ try { const v = localStorage.getItem(KEY); if (v) return JSON.parse(v); } catch(e){} return null; }
 let S = Object.assign(JSON.parse(JSON.stringify(DEF)), load() || {});
 S.settings = Object.assign({}, DEF.settings, S.settings || {});
@@ -226,8 +228,8 @@ function listen(onText, onFail, onLive, onState){
     abort(){ ctrl.stopped = true; done = true; clearT(); try { r.abort(); } catch(e){} }
   };
   const make = () => {
-    if (!REC) REC = new SR();
-    r = REC; r.lang = "en-US"; r.interimResults = true; r.continuous = !IOS; r.maxAlternatives = 4;
+    try { if (REC) REC.abort(); } catch(_){}
+    REC = new SR(); r = REC; r.lang = "en-US"; r.interimResults = true; r.continuous = !IOS; r.maxAlternatives = 4;
     r.onstart = () => log("開始");
     r.onaudiostart = () => { log("マイクON"); clearTimeout(readyT); if (onState) onState("ready"); };
     r.onspeechstart = () => { log("声を検出"); if (onState) onState("speech"); };
@@ -461,9 +463,20 @@ function stepHTML(d){
     ${micBlock(d, "言う")}`;
   return "";
 }
+function inputMode(){ return S.settings.inputMode === "auto" ? (IOS ? "keyboard" : "mic") : S.settings.inputMode; }
 function micBlock(d, verb){
   const r = st.result, passed = r && r.pct >= S.settings.pass;
   if (st.fails >= 3 && !passed) return cur.step === 6 ? revealHTML(d, "fail6") : revealHTML(d, "skip");
+  if (inputMode() === "keyboard" && !st.selfMode) return `
+    <div class="dict">
+      <textarea id="dict" class="dict-in" rows="2" lang="en" autocapitalize="off" autocomplete="off" spellcheck="false" aria-label="音声入力欄" placeholder="ここをタップ → キーボードの🎙を押して英語で${verb}">${esc(st.dictText || "")}</textarea>
+      <p class="srsnote" style="margin:6px 0 10px">キーボードを「English」に切り替えてから🎙を押すと、英語で入力されます。話し終わったら「判定する」。</p>
+      <div class="row"><button class="btn ghost" data-act="dictclear">消す</button><button class="btn primary" data-act="dictcheck" style="flex:1">判定する</button></div>
+    </div>
+    <p class="feedback ${passed ? "good" : r ? "bad" : ""}">${r ? (passed ? `いいね！ 一致度 ${r.pct}%` : `一致度 ${r.pct}%　${failMsg()}`) : ""}</p>
+    ${r ? `<p class="heard" lang="en">入力：${esc(r.heard)}</p>` : ""}
+    ${cur.step === 6 && st.fails >= 1 && !st.showHint && !passed ? `<div class="center"><button class="btn ghost" data-act="hint6">頭文字ヒント</button></div>` : ""}
+    <div class="center" style="margin-top:6px"><button class="btn ghost" data-act="selfjudge">うまくいかないときは自分で判定</button></div>`;
   if (micBlocked || st.selfMode){
     if (cur.step === 2) return `<div class="center"><p class="srsnote">声に出して読んだら押してください</p><button class="btn primary wide" data-act="selfpass">読めた、次へ</button></div>`;
     if (!st.shown) return `<div class="center"><p class="srsnote">声に出して言ってから答えを見てください</p>${st.fails >= 1 && !st.showHint ? `<button class="btn ghost" data-act="hint6">頭文字ヒント</button> ` : ""}<button class="btn primary" data-act="show6">答えを見る</button></div>`;
@@ -573,6 +586,7 @@ function settingsHTML(){
   <div class="set"><p>再生速度</p>${seg("rate", [0.8, 1, 1.2], v => v.toFixed(1) + "x")}</div>
   <div class="set" style="flex-wrap:wrap"><p style="flex:1 1 200px">読み上げの声<small>名前に Natural・Enhanced・Premium が付いた声ほど自然です</small></p>
     <div class="row" style="flex:1 1 240px;justify-content:flex-end;min-width:0">${(() => { const vs = rankedVoices(); return vs.length ? `<select id="voice-select" class="sel" aria-label="読み上げの声">${vs.map(v => `<option value="${esc(v.name)}" ${voice && v.name === voice.name ? "selected" : ""}>${esc(v.name)}（${esc(v.lang)}）</option>`).join("")}</select>` : `<span class="srsnote">英語の声が見つかりません</span>`; })()}<button class="btn" data-act="voicetest">試しに聞く</button></div></div>
+  <div class="set" style="flex-wrap:wrap"><p style="flex:1 1 200px">音声の入力方法<small>iPhoneは「キーボード」がおすすめです（キーボードの🎙で話す）</small></p><div class="seg">${[["auto","おまかせ"],["keyboard","キーボード"],["mic","アプリのマイク"]].map(([v, n]) => `<button class="${S.settings.inputMode === v ? "on" : ""}" data-mode="${v}">${n}</button>`).join("")}</div></div>
   <div class="set"><p>合格ライン<small>音読と英作の一致度</small></p>${seg("pass", [70, 80, 90], v => v + "%")}</div>
   <div class="set"><p>自動で読み上げる<small>ステップ1の開始時と正解時。iPhoneで音声認識がうまくいかないときはオフにして試してください</small></p><button class="sw ${S.settings.autoplay ? "on" : ""}" data-act="toggleautoplay" role="switch" aria-checked="${S.settings.autoplay}" aria-label="自動で読み上げる"></button></div>
   <div class="set"><p>🔍 調べるボタン<small>出題画面の下に表示</small></p><button class="sw ${S.settings.search ? "on" : ""}" data-act="togglesearch" role="switch" aria-checked="${S.settings.search}" aria-label="調べるボタンを表示"></button></div>
@@ -595,6 +609,7 @@ app.addEventListener("click", e => {
   const fv = t.closest("[data-favid]"); if (fv){ const id = +fv.dataset.favid; S.fav[id] ? delete S.fav[id] : S.fav[id] = true; save(); render(); return; }
   const ex = t.closest("[data-exid]"); if (ex){ const id = +ex.dataset.exid; S.excl[id] ? delete S.excl[id] : S.excl[id] = true; save(); render(); return; }
   const pr = t.closest("[data-practice]"); if (pr){ const id = +pr.dataset.practice; if (S.excl[id]){ delete S.excl[id]; save(); } startSession(DATA.filter(x => x.id >= id && !S.excl[x.id]).map(x => ({id: x.id, mode: S.srs[x.id] ? "practice" : "new"}))); return; }
+  const md = t.closest("[data-mode]"); if (md){ S.settings.inputMode = md.dataset.mode; save(); render(); return; }
   const cs = t.closest("[data-chstart]"); if (cs){ const n = +cs.dataset.chstart; startSession(DATA.filter(x => x.chapter === n && !S.excl[x.id]).map(x => ({id: x.id, mode: S.srs[x.id] ? "practice" : "new"}))); return; }
   const con = t.closest("[data-chon]"); if (con){ const n = +con.dataset.chon; DATA.filter(x => x.chapter === n).forEach(x => delete S.excl[x.id]); save(); render(); return; }
   const cof = t.closest("[data-choff]"); if (cof){ const n = +cof.dataset.choff; const ids = DATA.filter(x => x.chapter === n).map(x => x.id); ids.forEach(id => S.excl[id] = true); save(); render(); toast(`第${n}章を除外しました`, () => { ids.forEach(id => delete S.excl[id]); save(); render(); }); return; }
@@ -603,6 +618,7 @@ app.addEventListener("click", e => {
   act(a.dataset.act);
 });
 app.addEventListener("change", e => { if (e.target.id === "voice-select"){ S.settings.voiceName = e.target.value; save(); pickVoice(); speak("Good morning! Did you sleep well last night?"); } });
+app.addEventListener("input", e => { if (e.target.id === "dict") st.dictText = e.target.value; });
 app.addEventListener("input", e => { const i = e.target.closest("[data-ci]"); if (i){ st.vals[+i.dataset.ci] = i.value; if (st.checked){ st.checked = false; i.classList.remove("bad","good"); } } });
 app.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.closest("[data-ci]")){ e.preventDefault(); act("check5"); } });
 
@@ -621,6 +637,13 @@ function act(name){
     case "self-ok": st.result = {pct: 100, ok: d.words.map(() => true), heard: ""}; onSpeechPass(); break;
     case "self-ng": st.shown = false; onSpeechFail(); break;
     case "selfpass": passStep(); render(); break;
+    case "dictclear": st.dictText = ""; st.result = null; render(); { const el = document.getElementById("dict"); if (el) el.focus(); } break;
+    case "dictcheck": {
+      const txt = (st.dictText || "").trim();
+      if (!txt){ toast("入力欄に英語が入っていません。キーボードの🎙で話してください"); break; }
+      st.result = scoreSpeech(d, txt); st.dictText = "";
+      if (st.result.pct >= S.settings.pass) onSpeechPass(); else onSpeechFail();
+      break; }
     case "selfjudge": stopListen(); st.selfMode = true; st.err = ""; render(); break;
     case "skip": S.weak[cur.id] = true; save(); if (cur.step < 6) goStep(cur.step + 1); else finishItem(false); break;
     case "fail6": S.weak[cur.id] = true; save(); finishItem(false); break;
@@ -654,11 +677,6 @@ async function micToggle(d){
   if (listening){ const r = listening; listening = null; st.judging = true; render(); try { r.stop(); } catch(e){ try { r.abort(); } catch(_){} } return; }
   window.speechSynthesis && window.speechSynthesis.cancel();
   st.result = null; st.live = ""; st.err = ""; st.judging = false; st.micState = "starting";
-  if (IOS && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
-    listening = {stop(){}, abort(){}}; render();
-    try { const s = await navigator.mediaDevices.getUserMedia({audio: true}); s.getTracks().forEach(tr => tr.stop()); } catch(e){}
-    await new Promise(res => setTimeout(res, 150));
-  }
   listening = listen(alts => { listening = null; st.judging = false; st.live = ""; st.result = bestScore(d, alts); if (st.result.pct >= S.settings.pass) onSpeechPass(); else onSpeechFail(); },
     err => { listening = null; st.judging = false; st.live = ""; st.err = micMessage(err) + (micLog.length ? "　［記録］" + micLog.join(" → ") : ""); if (micBlocked) toast("マイクが使えないため、自分で判定する方式に切り替えました"); render(); },
     live => { st.live = live; const el = document.getElementById("live"); if (el) el.textContent = "聞き取り中：" + live; },
