@@ -178,7 +178,7 @@ const DATA = [{"id": 1, "chapter": 1, "chapter_title": "職場・日常での何
 function chapters(){ const m = new Map(); DATA.forEach(d => { if (!m.has(d.chapter)) m.set(d.chapter, {n: d.chapter, title: d.chapter_title, items: []}); m.get(d.chapter).items.push(d); }); return [...m.values()]; }
 const byId = Object.fromEntries(DATA.map(d => [d.id, d]));
 const KEY = "yarinaoshi-adult-v1";
-const DEF = {fav:{}, excl:{}, weak:{}, prog:{}, srs:{}, settings:{rate:1, pass:80, search:true, voiceName:""}, streak:{last:null, count:0}, daily:{date:null, newDone:0, reviewDone:0}};
+const DEF = {fav:{}, excl:{}, weak:{}, prog:{}, srs:{}, settings:{rate:1, pass:80, search:true, voiceName:"", autoplay:true}, streak:{last:null, count:0}, daily:{date:null, newDone:0, reviewDone:0}};
 function load(){ try { const v = localStorage.getItem(KEY); if (v) return JSON.parse(v); } catch(e){} return null; }
 let S = Object.assign(JSON.parse(JSON.stringify(DEF)), load() || {});
 S.settings = Object.assign({}, DEF.settings, S.settings || {});
@@ -361,7 +361,7 @@ function goStep(n){ stopListen(); cur.step = n; cur.ikinari = false; st = {fails
 function enterStep(){
   const d = byId[cur.id];
   if (cur.step === 4 && d.skip_word_sort){ goStep(5); return; }
-  if (cur.step === 1) setTimeout(() => speak(d.en), 250);
+  if (cur.step === 1 && S.settings.autoplay) setTimeout(() => speak(d.en), 250);
 }
 function passStep(){
   S.prog[cur.id] = Math.max(S.prog[cur.id] || 0, cur.step); save();
@@ -574,6 +574,7 @@ function settingsHTML(){
   <div class="set" style="flex-wrap:wrap"><p style="flex:1 1 200px">読み上げの声<small>名前に Natural・Enhanced・Premium が付いた声ほど自然です</small></p>
     <div class="row" style="flex:1 1 240px;justify-content:flex-end;min-width:0">${(() => { const vs = rankedVoices(); return vs.length ? `<select id="voice-select" class="sel" aria-label="読み上げの声">${vs.map(v => `<option value="${esc(v.name)}" ${voice && v.name === voice.name ? "selected" : ""}>${esc(v.name)}（${esc(v.lang)}）</option>`).join("")}</select>` : `<span class="srsnote">英語の声が見つかりません</span>`; })()}<button class="btn" data-act="voicetest">試しに聞く</button></div></div>
   <div class="set"><p>合格ライン<small>音読と英作の一致度</small></p>${seg("pass", [70, 80, 90], v => v + "%")}</div>
+  <div class="set"><p>自動で読み上げる<small>ステップ1の開始時と正解時。iPhoneで音声認識がうまくいかないときはオフにして試してください</small></p><button class="sw ${S.settings.autoplay ? "on" : ""}" data-act="toggleautoplay" role="switch" aria-checked="${S.settings.autoplay}" aria-label="自動で読み上げる"></button></div>
   <div class="set"><p>🔍 調べるボタン<small>出題画面の下に表示</small></p><button class="sw ${S.settings.search ? "on" : ""}" data-act="togglesearch" role="switch" aria-checked="${S.settings.search}" aria-label="調べるボタンを表示"></button></div>
   <div class="set"><p>学習記録のリセット<small>星・除外・進み具合・復習予定をすべて消します</small></p>
     ${confirmReset ? `<div class="row"><button class="btn" data-act="reset-no">やめる</button><button class="btn primary" data-act="reset-yes">リセットする</button></div>` : `<button class="btn" data-act="reset">リセット</button>`}</div>
@@ -637,6 +638,7 @@ function act(name){
     case "alloff": DATA.forEach(x => S.excl[x.id] = true); save(); render(); toast("すべて除外しました。出題する文がありません", () => { DATA.forEach(x => delete S.excl[x.id]); save(); render(); }); break;
     case "drill": { const ids = DATA.filter({all: x => true, fav: x => S.fav[x.id], weak: x => S.weak[x.id], mastered: x => isMastered(x.id)}[listFilter]).filter(x => !S.excl[x.id]); startSession(ids.map(x => ({id: x.id, mode: S.srs[x.id] ? "practice" : "new"}))); break; }
     case "listen-all": listenAll(); break;
+    case "toggleautoplay": S.settings.autoplay = !S.settings.autoplay; save(); render(); break;
     case "togglesearch": S.settings.search = !S.settings.search; save(); render(); break;
     case "reset": confirmReset = true; render(); break;
     case "reset-no": confirmReset = false; render(); break;
@@ -648,10 +650,15 @@ function sheetAction(name){
   if (name === "restart"){ closeSheet(); cur.ikinari = false; goStep(1); }
 }
 function micStateText(){ return st.micState === "speech" ? "聞いています…話し終わったらもう一度押してください" : st.micState === "ready" ? "どうぞ、話してください" : "準備中…（まだ話さないでください）"; }
-function micToggle(d){
+async function micToggle(d){
   if (listening){ const r = listening; listening = null; st.judging = true; render(); try { r.stop(); } catch(e){ try { r.abort(); } catch(_){} } return; }
   window.speechSynthesis && window.speechSynthesis.cancel();
   st.result = null; st.live = ""; st.err = ""; st.judging = false; st.micState = "starting";
+  if (IOS && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    listening = {stop(){}, abort(){}}; render();
+    try { const s = await navigator.mediaDevices.getUserMedia({audio: true}); s.getTracks().forEach(tr => tr.stop()); } catch(e){}
+    await new Promise(res => setTimeout(res, 150));
+  }
   listening = listen(alts => { listening = null; st.judging = false; st.live = ""; st.result = bestScore(d, alts); if (st.result.pct >= S.settings.pass) onSpeechPass(); else onSpeechFail(); },
     err => { listening = null; st.judging = false; st.live = ""; st.err = micMessage(err) + (micLog.length ? "　［記録］" + micLog.join(" → ") : ""); if (micBlocked) toast("マイクが使えないため、自分で判定する方式に切り替えました"); render(); },
     live => { st.live = live; const el = document.getElementById("live"); if (el) el.textContent = "聞き取り中：" + live; },
@@ -673,7 +680,7 @@ function placeTile(pi){
   st.placed.push(pi); st.state = null;
   if (st.placed.length === answer.length){
     const built = st.placed.map(i => st.pool[i].t);
-    if (built.join(" ") === answer.join(" ")){ st.state = "good"; render(); speak(d.en); passStep(); }
+    if (built.join(" ") === answer.join(" ")){ st.state = "good"; render(); if (S.settings.autoplay) speak(d.en); passStep(); }
     else { st.fails++; st.state = "bad"; if (st.fails >= 3) S.weak[cur.id] = true; save(); render(); setTimeout(() => { if (st.state === "bad"){ st.placed = []; st.state = null; render(); } }, 800); }
   } else render();
 }
@@ -681,7 +688,7 @@ function checkCloze(d){
   const ans = d.cloze_answers.flatMap(a => a.split(" "));
   st.checked = true;
   st.allGood = ans.every((a, i) => clean(st.vals[i] || "") === clean(a));
-  if (st.allGood){ render(); speak(d.en); passStep(); }
+  if (st.allGood){ render(); if (S.settings.autoplay) speak(d.en); passStep(); }
   else { st.fails++; if (st.fails >= 3) S.weak[cur.id] = true; save(); render(); }
 }
 function hidePop(){ pop.hidden = true; }
