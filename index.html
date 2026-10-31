@@ -211,10 +211,13 @@ function speak(text, slow){
 /* ---------- speech in ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let micBlocked = !SR;
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let REC = null, micLog = [];
 function listen(onText, onFail, onLive, onState){
   if (micBlocked) { onFail("blocked"); return null; }
   let done = false, latest = [], heardAny = false, silence = null, cap = null, r = null, restarts = 0, readyT = null;
-  const t0 = Date.now();
+  const t0 = Date.now(); micLog = [];
+  const log = s => { micLog.push(s + "(" + ((Date.now() - t0) / 1000).toFixed(1) + "s)"); if (micLog.length > 14) micLog.shift(); };
   const clearT = () => { clearTimeout(silence); clearTimeout(cap); clearTimeout(readyT); };
   const finish = () => { if (done) return; done = true; clearT(); if (heardAny && latest.length && latest[0].trim()) onText(latest); else onFail("no-speech"); };
   const ctrl = {
@@ -223,26 +226,32 @@ function listen(onText, onFail, onLive, onState){
     abort(){ ctrl.stopped = true; done = true; clearT(); try { r.abort(); } catch(e){} }
   };
   const make = () => {
-    r = new SR(); r.lang = "en-US"; r.interimResults = true; r.continuous = true; r.maxAlternatives = 4;
-    r.onaudiostart = () => { clearTimeout(readyT); if (onState) onState("ready"); };
-    r.onspeechstart = () => { if (onState) onState("speech"); };
+    if (!REC) REC = new SR();
+    r = REC; r.lang = "en-US"; r.interimResults = true; r.continuous = !IOS; r.maxAlternatives = 4;
+    r.onstart = () => log("開始");
+    r.onaudiostart = () => { log("マイクON"); clearTimeout(readyT); if (onState) onState("ready"); };
+    r.onspeechstart = () => { log("声を検出"); if (onState) onState("speech"); };
+    r.onaudioend = () => log("マイクOFF");
     r.onresult = e => {
       const res = [...e.results], last = res[res.length - 1];
       const prefix = res.slice(0, -1).map(x => x[0].transcript).join(" ");
       latest = [...last].map(x => (prefix + " " + x.transcript).trim());
+      if (!heardAny) log("認識あり");
       heardAny = true;
       if (onState) onState("speech");
       if (onLive) onLive(res.map(x => x[0].transcript).join(" ").trim());
       clearTimeout(silence); silence = setTimeout(() => ctrl.stop(), 1800);
     };
     r.onerror = e => {
+      log("エラー:" + e.error);
       if (e.error === "no-speech" || e.error === "aborted") return;
       if (["not-allowed","service-not-allowed","audio-capture"].includes(e.error)) micBlocked = true;
       if (!done){ done = true; clearT(); onFail(e.error); }
     };
     r.onend = () => {
+      log("終了");
       if (done) return;
-      if (!heardAny && !ctrl.stopped && restarts < 3 && Date.now() - t0 < 11000){
+      if (!IOS && !heardAny && !ctrl.stopped && restarts < 3 && Date.now() - t0 < 11000){
         restarts++; try { make(); r.start(); return; } catch(e){}
       }
       finish();
@@ -252,8 +261,9 @@ function listen(onText, onFail, onLive, onState){
     make();
     cap = setTimeout(() => ctrl.stop(), 12000);
     readyT = setTimeout(() => { if (onState) onState("ready"); }, 900);
-    r.start(); return ctrl;
-  } catch(e){ micBlocked = true; onFail("blocked"); return null; }
+    try { r.start(); } catch(e1){ log("再作成"); REC = null; make(); r.start(); }
+    return ctrl;
+  } catch(e){ clearT(); onFail("start-failed"); return null; }
 }
 function micMessage(err){
   const m = {"not-allowed":"マイクが許可されていません。ブラウザの設定で、このページのマイクを許可してください。",
@@ -643,7 +653,7 @@ function micToggle(d){
   window.speechSynthesis && window.speechSynthesis.cancel();
   st.result = null; st.live = ""; st.err = ""; st.judging = false; st.micState = "starting";
   listening = listen(alts => { listening = null; st.judging = false; st.live = ""; st.result = bestScore(d, alts); if (st.result.pct >= S.settings.pass) onSpeechPass(); else onSpeechFail(); },
-    err => { listening = null; st.judging = false; st.live = ""; st.err = micMessage(err); if (micBlocked) toast("マイクが使えないため、自分で判定する方式に切り替えました"); render(); },
+    err => { listening = null; st.judging = false; st.live = ""; st.err = micMessage(err) + (micLog.length ? "　［記録］" + micLog.join(" → ") : ""); if (micBlocked) toast("マイクが使えないため、自分で判定する方式に切り替えました"); render(); },
     live => { st.live = live; const el = document.getElementById("live"); if (el) el.textContent = "聞き取り中：" + live; },
     state => { if (st.micState === "speech" && state === "ready") return; st.micState = state; const el = document.getElementById("micstate"); if (el){ el.textContent = micStateText(); el.classList.add("go"); } });
   render();
