@@ -19,7 +19,7 @@
 /* Layout: one narrow study column like a notebook page; sentence is the hero, tools pinned to the bottom edge */
 :root{
   --paper:#f5f7fb; --sheet:#ffffff; --ink:#18202f; --muted:#5b6476; --line:#dde2ec;
-  --accent:#2453c2; --accent-ink:#ffffff; --soft:#e9eefa;
+  --accent:#2453c2; --accent-ink:#ffffff; --accent-text:#2453c2; --soft:#e9eefa;
   --marker:rgba(255,208,0,.5); --good:#1d8657; --bad:#c23a3a; --goodbg:rgba(29,134,87,.1); --badbg:rgba(194,58,58,.1);
   --f-en:'Lexend',system-ui,-apple-system,'Segoe UI',sans-serif;
   --f-ja:'Zen Kaku Gothic New','Hiragino Sans','Noto Sans JP',system-ui,sans-serif;
@@ -27,11 +27,11 @@
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --paper:#10141c; --sheet:#181d28; --ink:#e7ebf3; --muted:#9aa3b5; --line:#2a3141;
-  --accent:#8aa9ff; --accent-ink:#0c1120; --soft:#1f2738;
+  --accent:#8aa9ff; --accent-ink:#0c1120; --accent-text:#8aa9ff; --soft:#1f2738;
   --marker:rgba(255,196,0,.28); --good:#52c48f; --bad:#ff8080; --goodbg:rgba(82,196,143,.14); --badbg:rgba(255,128,128,.14); color-scheme:dark}}
 :root[data-theme="dark"]{
   --paper:#10141c; --sheet:#181d28; --ink:#e7ebf3; --muted:#9aa3b5; --line:#2a3141;
-  --accent:#8aa9ff; --accent-ink:#0c1120; --soft:#1f2738;
+  --accent:#8aa9ff; --accent-ink:#0c1120; --accent-text:#8aa9ff; --soft:#1f2738;
   --marker:rgba(255,196,0,.28); --good:#52c48f; --bad:#ff8080; --goodbg:rgba(82,196,143,.14); --badbg:rgba(255,128,128,.14); color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-ja);font-size:15px;line-height:1.6;
@@ -120,7 +120,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .tools a,.tools button{border:0;background:none;padding:8px 10px;border-radius:10px;font-size:14px;color:var(--muted);text-decoration:none}
 .tools a:hover,.tools button:hover{background:var(--soft)}
 .helpers{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
-.help-btn{display:inline-flex;align-items:center;gap:6px;border-color:var(--accent);color:var(--accent);font-weight:700;text-decoration:none;font-size:15px;line-height:1.6}
+.help-btn{display:inline-flex;align-items:center;gap:6px;border-color:var(--accent);color:var(--accent-text);font-weight:700;text-decoration:none;font-size:15px;line-height:1.6}
 .help-btn:hover{background:var(--soft)}
 .skipnav{display:flex;justify-content:space-between;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
 .sel{font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--sheet);color:var(--ink);min-width:0;flex:1;max-width:100%}
@@ -132,7 +132,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 #pop .pm{font-size:14.5px;margin-top:2px}
 .en-row{display:flex;gap:12px;align-items:flex-start}
 .en-row .en{flex:1;min-width:0;margin:2px 0 8px}
-.spk{flex:none;width:44px;height:44px;margin-top:4px;border-radius:50%;border:1px solid var(--accent);background:var(--sheet);color:var(--accent);display:grid;place-items:center;padding:0}
+.spk{flex:none;width:44px;height:44px;margin-top:4px;border-radius:50%;border:1px solid var(--accent);background:var(--sheet);color:var(--accent-text);display:grid;place-items:center;padding:0}
 .spk:hover{background:var(--soft)}
 /* list */
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:4px 0 10px}
@@ -176,7 +176,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .menu-item{display:block;width:100%;text-align:left;border:0;background:none;padding:14px 4px;border-bottom:1px solid var(--line);font-size:15px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--ink);color:var(--paper);
   border-radius:12px;padding:10px 14px;font-size:14px;display:flex;gap:14px;align-items:center;max-width:calc(100% - 32px)}
-#toast button{border:0;background:none;color:var(--accent);font-weight:700;padding:0}
+#toast button{border:0;background:none;color:var(--accent-text);font-weight:700;padding:0}
 :root[data-theme="dark"] #toast button{color:var(--accent-ink)}
 .mine-form label{display:block;font-weight:700;margin:14px 0 6px}
 .mine-form textarea,.mine-form input{width:100%;min-width:0;font:inherit;font-size:17px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sheet);color:var(--ink)}
@@ -185,6 +185,12 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 label.btn{cursor:pointer;display:inline-block}
 .bk-area{width:100%;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:13px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--sheet);color:var(--ink)}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;width:100%}
+.sw-color{border:2px solid transparent;background:none;border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.sw-color span{width:34px;height:34px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.sw-color small{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.sw-color.on{border-color:var(--accent)}
+.sw-color.on small{color:var(--ink);font-weight:700}
 /* larger, phone-friendly type */
 body{font-size:16px}
 .lead{font-size:14.5px}.lead b{font-size:17px}
@@ -217,7 +223,7 @@ body{font-size:16px}
 .chap-n{white-space:nowrap;color:var(--muted);font-size:14.5px;font-variant-numeric:tabular-nums}
 .chap .meter{display:block}
 .ch-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:22px 0 2px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
-.chap-switch{display:block;border:0;background:none;padding:2px 0 8px;color:var(--accent);font-weight:700;font-size:15px;text-align:left}
+.chap-switch{display:block;border:0;background:none;padding:2px 0 8px;color:var(--accent-text);font-weight:700;font-size:15px;text-align:left}
 .dict-row{display:flex;gap:10px;align-items:stretch}
 .dict-row .dict-in{flex:1}
 .dict-btns{display:flex;flex-direction:column;gap:6px}
@@ -248,11 +254,31 @@ function chTitle(n){ const c = chapters().find(x => x.n === n); return c ? c.tit
 let byId = Object.fromEntries(DATA.map(d => [d.id, d]));
 function chName(n){ return n === MY ? "マイ例文" : `第${n}章　${esc(chTitle(n))}`; }
 const KEY = "yarinaoshi-adult-v1";
-const DEF = {fav:{}, excl:{}, weak:{}, prog:{}, srs:{}, settings:{rate:1, pass:80, search:true, voiceName:"", autoplay:true, inputMode:"auto"}, streak:{last:null, count:0}, daily:{date:null, newDone:0, reviewDone:0}};
+const DEF = {fav:{}, excl:{}, weak:{}, prog:{}, srs:{}, settings:{rate:1, pass:80, search:true, voiceName:"", autoplay:true, inputMode:"auto", color:"blue"}, streak:{last:null, count:0}, daily:{date:null, newDone:0, reviewDone:0}};
 function load(){ try { const v = localStorage.getItem(KEY); if (v) return JSON.parse(v); } catch(e){} return null; }
 let S = Object.assign(JSON.parse(JSON.stringify(DEF)), load() || {});
 S.settings = Object.assign({}, DEF.settings, S.settings || {});
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+/* ---------- color themes ---------- */
+const THEMES = {
+  blue:   {name:"青（標準）", l:["#2453c2","#ffffff","#2453c2","#e9eefa"], d:["#8aa9ff","#0c1120","#8aa9ff","#1f2738"]},
+  sky:    {name:"水色", l:["#1f8fd0","#ffffff","#0f6fa8","#e3f3fc"], d:["#5bbcf0","#06202e","#7ccbf5","#16303d"]},
+  pink:   {name:"ピンク", l:["#e8508c","#ffffff","#c2346e","#fde8f0"], d:["#f27aa8","#2e0716","#f59abd","#3a1a27"]},
+  yellow: {name:"黄色", l:["#f6c400","#2b2300","#8a6d00","#fff7d1"], d:["#f6cf3a","#2b2300","#f6d65c","#3a3315"]},
+  purple: {name:"紫", l:["#7c4dd8","#ffffff","#6a3cc4","#efe8fc"], d:["#a688f0","#1a0d33","#b9a2f4","#2a2140"]},
+  lime:   {name:"黄緑", l:["#7cc242","#14240a","#4c8a1c","#eef8e3"], d:["#95d45e","#14240a","#a8de78","#22321a"]},
+  gray:   {name:"グレー", l:["#5b6578","#ffffff","#485163","#eceef2"], d:["#a3acbd","#12151b","#b3bbc9","#2a2f39"]},
+  red:    {name:"赤", l:["#d63a3a","#ffffff","#b42a2a","#fde6e6"], d:["#f07272","#2e0808","#f59090","#3d1c1c"]},
+  orange: {name:"橙", l:["#f08a24","#2a1600","#b85f00","#fff0e0"], d:["#f5a352","#2a1600","#f7b36f","#3d2a17"]}
+};
+function isDark(){ const a = document.documentElement.getAttribute("data-theme"); if (a === "dark") return true; if (a === "light") return false; try { return matchMedia("(prefers-color-scheme: dark)").matches; } catch(e){ return false; } }
+function applyTheme(){
+  const th = THEMES[S.settings.color] || THEMES.blue, v = isDark() ? th.d : th.l, st_ = document.documentElement.style;
+  st_.setProperty("--accent", v[0]); st_.setProperty("--accent-ink", v[1]); st_.setProperty("--accent-text", v[2]); st_.setProperty("--soft", v[3]);
+}
+applyTheme();
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch(e){}
+try { new MutationObserver(applyTheme).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]}); } catch(e){}
 /* ---------- my sentences ---------- */
 if (!Array.isArray(S.custom)) S.custom = [];
 const STOPW = new Set(["a","an","the","i","you","he","she","it","we","they","me","him","her","us","them","my","your","his","its","our","their","is","are","was","were","be","been","am","do","does","did","to","of","in","on","at","for","with","and","but","or","so","if","that","this","what","not","no","can","will","just","very","too","have","has","had","i'm","it's","don't","can't","i'll","let's","you're"]);
@@ -752,6 +778,8 @@ function settingsHTML(){
   const seg = (key, vals, fmt) => `<div class="seg">${vals.map(v => `<button class="${S.settings[key] === v ? "on" : ""}" data-set="${key}" data-val="${v}">${fmt(v)}</button>`).join("")}</div>`;
   return `
   <div class="bar"><button class="icon home" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v9.5h5v-5.5h3v5.5h5V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><h1>設定</h1></div>
+  <div class="set" style="flex-wrap:wrap"><p style="flex:1 1 100%">カラー</p>
+    <div class="swatches">${Object.entries(THEMES).map(([k, th]) => `<button class="sw-color ${S.settings.color === k ? "on" : ""}" data-color="${k}" aria-label="${th.name}" aria-pressed="${S.settings.color === k}"><span style="background:${isDark() ? th.d[0] : th.l[0]}"></span><small>${th.name}</small></button>`).join("")}</div></div>
   <div class="set"><p>再生速度</p>${seg("rate", [0.8, 1, 1.2], v => v.toFixed(1) + "x")}</div>
   <div class="set" style="flex-wrap:wrap"><p style="flex:1 1 200px">読み上げの声<small>名前に Natural・Enhanced・Premium が付いた声ほど自然です</small></p>
     <div class="row" style="flex:1 1 240px;justify-content:flex-end;min-width:0">${(() => { const vs = rankedVoices(); return vs.length ? `<select id="voice-select" class="sel" aria-label="読み上げの声">${vs.map(v => `<option value="${esc(v.name)}" ${voice && v.name === voice.name ? "selected" : ""}>${esc(v.name)}（${esc(v.lang)}）</option>`).join("")}</select>` : `<span class="srsnote">英語の声が見つかりません</span>`; })()}<button class="btn" data-act="voicetest">試しに聞く</button></div></div>
@@ -788,6 +816,7 @@ app.addEventListener("click", e => {
   const fv = t.closest("[data-favid]"); if (fv){ const id = +fv.dataset.favid; S.fav[id] ? delete S.fav[id] : S.fav[id] = true; save(); render(); return; }
   const ex = t.closest("[data-exid]"); if (ex){ const id = +ex.dataset.exid; S.excl[id] ? delete S.excl[id] : S.excl[id] = true; save(); render(); return; }
   const pr = t.closest("[data-practice]"); if (pr){ const id = +pr.dataset.practice; if (S.excl[id]){ delete S.excl[id]; save(); } startSession(DATA.filter(x => x.id >= id && !S.excl[x.id]).map(x => ({id: x.id, mode: S.srs[x.id] ? "practice" : "new"}))); return; }
+  const cl = t.closest("[data-color]"); if (cl){ S.settings.color = cl.dataset.color; save(); applyTheme(); render(); return; }
   const md = t.closest("[data-mode]"); if (md){ S.settings.inputMode = md.dataset.mode; save(); render(); return; }
   const cs = t.closest("[data-chstart]"); if (cs){ startChapter(+cs.dataset.chstart); return; }
   const con = t.closest("[data-chon]"); if (con){ const n = +con.dataset.chon; DATA.filter(x => chOf(x) === n).forEach(x => delete S.excl[x.id]); save(); render(); return; }
@@ -875,7 +904,7 @@ function act(name){
       break; }
     case "bk-restore": {
       S = Object.assign(JSON.parse(JSON.stringify(DEF)), bk.data); S.settings = Object.assign({}, DEF.settings, S.settings || {}); if (!Array.isArray(S.custom)) S.custom = [];
-      save(); rebuildData(); bk = {}; pickVoice(); render(); toast("バックアップから復元しました");
+      save(); rebuildData(); bk = {}; pickVoice(); applyTheme(); render(); toast("バックアップから復元しました");
       break; }
     case "selfjudge": stopListen(); st.selfMode = true; st.err = ""; render(); break;
     case "skip": S.weak[cur.id] = true; save(); if (cur.step < 6) goStep(cur.step + 1); else finishItem(false); break;
