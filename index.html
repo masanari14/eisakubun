@@ -419,8 +419,9 @@ function micMessage(err){
   return err in m ? m[err] : "音声認識でエラーが起きました（" + err + "）。下の「自分で判定」を使ってください。";
 }
 const CONTR = {"i'm":"i am","it's":"it is","isn't":"is not","let's":"let us","don't":"do not","doesn't":"does not","you're":"you are","what's":"what is","that's":"that is","can't":"can not","cannot":"can not","won't":"will not","i'll":"i will","i've":"i have","we're":"we are","didn't":"did not","haven't":"have not","there's":"there is","he's":"he is","she's":"she is","aren't":"are not","wasn't":"was not","i'd":"i would"};
-const NUM = {"0":"zero","1":"one","2":"two","3":"three","4":"four","5":"five","6":"six","7":"seven","8":"eight","9":"nine","10":"ten"};
-function normTok(w){ let t = w.toLowerCase().replace(/[’‘]/g,"'").replace(/[^a-z0-9']/g,""); if (!t) return []; if (CONTR[t]) return CONTR[t].split(" "); if (NUM[t]) return [NUM[t]]; return [t.replace(/'/g,"")]; }
+const NUM = {"0":"zero","1":"one","2":"two","3":"three","4":"four","5":"five","6":"six","7":"seven","8":"eight","9":"nine","10":"ten","30":"thirty"};
+const NUMX = {"1st":"first","2nd":"second","3rd":"third","21st":"twenty first","33rd":"thirty third","430":"four thirty","1000":"a thousand","120":"one hundred twenty"};
+function normTok(w){ let t = w.toLowerCase().replace(/[’‘]/g,"'").replace(/[^a-z0-9']/g,""); if (!t) return []; if (CONTR[t]) return CONTR[t].split(" "); if (NUMX[t]) return NUMX[t].split(" "); if (NUM[t]) return [NUM[t]]; return [t.replace(/'/g,"")]; }
 function lcsHits(a, b){
   const n = a.length, m = b.length, dp = Array.from({length:n+1}, () => new Array(m+1).fill(0));
   for (let i = n-1; i >= 0; i--) for (let j = m-1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
@@ -431,7 +432,7 @@ function lcsHits(a, b){
 function scoreSpeech(d, transcript){
   const toks = [], owner = [];
   d.words.forEach((w, wi) => normTok(w).forEach(t => { toks.push(t); owner.push(wi); }));
-  const spoken = transcript.split(/\s+/).flatMap(normTok);
+  const spoken = transcript.replace(/[-‐–]/g, " ").split(/\s+/).flatMap(normTok);
   const hit = lcsHits(toks, spoken);
   const pct = toks.length ? Math.round(100 * hit.filter(Boolean).length / toks.length) : 0;
   const ok = d.words.map((_, wi) => owner.every((o, k) => o !== wi || hit[k]));
